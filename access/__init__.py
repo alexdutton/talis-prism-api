@@ -1,6 +1,9 @@
-import urllib, urllib2, cookielib, re
+# coding=UTF-8
+
+import urllib, urllib2, cookielib, re, sys, simplejson
 from lxml import etree
 from datetime import datetime
+from decimal import Decimal
 
 class TalisPrism(object):
     _USER_AGENT = 'Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.1.8) Gecko/20100215 Solaris/10.1 (GNU)'
@@ -47,8 +50,10 @@ class TalisPrism(object):
         return self._user_details_cache
 
     @property
-    def fines(self):
-        return None
+    def charges(self):
+        match = re.search(r'£(\d+\.\d\d)', self.home_page)
+        if match:
+            return float(match.group(1))
 
     @property
     def name(self):
@@ -77,29 +82,39 @@ class TalisPrism(object):
     @property
     def loans(self):
         part = self.home_page
-        part = part[part.index('<Table Height="1%" Width="100%" >'):]
-        part = part[:part.index('</Table>')]
+
+        try:
+            part = part[part.index('<Table Height="1%" Width="100%" >'):]
+            part = part[:part.index('</Table>')]
+        except ValueError:
+            return []
         part = etree.fromstring(part, parser=etree.HTMLParser())
 
         items = []
         for tr in part.findall('.//tr')[1:]:
             fields = [td.find('font') for td in tr.findall('td')]
+            fields = [(f.find('font') if len(f) else f) for f in fields]
             title_stmt, isbn = fields[2].text.rsplit(' - ', 1)
             items.append({
                 'title_stmt': title_stmt,
                 'isbn': isbn,
                 'lcn': fields[3].text.strip(),
                 'type': fields[4].text.strip(),
-                'due': datetime.strptime(fields[5].text.strip(), '%d/%m/%Y %H:%M'),
+                'due': datetime.strptime(fields[5].text.strip(), '%d/%m/%Y %H:%M').isoformat(),
+                'renewals': int(fields[6].text.strip()),
             })
 
         return items
 
+if __name__ == '__main__':
+    tp = TalisPrism('http://www.library.northamptonshire.gov.uk/TalisPrism/', *sys.argv[1:])
 
-tp = TalisPrism('http://www.library.northamptonshire.gov.uk/TalisPrism/', '1000930016', '9999')
-print tp.name
-print tp.email
-print tp.address
-print tp.telephone
-print tp.loans
+    print simplejson.dumps({
+        'name': tp.name,
+        'email': tp.email,
+        'address': tp.address,
+        'telephone': tp.telephone,
+        'charges': tp.charges,
+        'loans': tp.loans,
+    }, indent=3)
 
