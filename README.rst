@@ -7,6 +7,11 @@ This project provides a simple library for interacting with Talis Prism instance
 
    This code has only been tested with Northamptonshires instances. It's entirely possible that there are differences with other instances.
 
+License
+-------
+
+This code is released into the public domain under the `Creative Commons CC0 1.0 Universal License <http://creativecommons.org/publicdomain/zero/1.0/>`_.
+
 API
 ---
 
@@ -33,7 +38,7 @@ Example usage::
 
    tp = TalisPrism('http://library.example.com/TalisPrism/', '1234567890', '0000')
    print "%s <%s>" % (tp.name, tp.email)
-   
+
    # Attempt to renew the first item currently loaned.
    tp.renew([tp.loans[0]['lcn']])
 
