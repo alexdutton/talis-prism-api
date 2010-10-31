@@ -91,7 +91,7 @@ class TalisPrism(object):
                 'isbn': isbn,
                 'lcn': fields[3].text.strip(),
                 'type': fields[4].text.strip(),
-                'due': datetime.strptime(fields[5].text.strip(), '%d/%m/%Y %H:%M').isoformat(),
+                'due': datetime.strptime(fields[5].text.strip(), '%d/%m/%Y %H:%M'),
                 'renewals': int(fields[6].text.strip()),
             })
 
@@ -118,8 +118,8 @@ class TalisPrism(object):
                 'isbn': isbn,
                 'lcn': fields[1].text.strip(),
                 'type': fields[2].text.strip(),
-                'issued': datetime.strptime(fields[3].text.strip(), '%d/%m/%Y').isoformat(),
-                'returned': datetime.strptime(fields[4].text.strip(), '%d/%m/%Y').isoformat(),
+                'issued': datetime.strptime(fields[3].text.strip(), '%d/%m/%Y'),
+                'returned': datetime.strptime(fields[4].text.strip(), '%d/%m/%Y'),
             })
 
         return items
@@ -142,9 +142,11 @@ class TalisPrism(object):
         del self._home_page_cache
 
 if __name__ == '__main__':
-    tp = TalisPrism('http://www.library.northamptonshire.gov.uk/TalisPrism/', *sys.argv[1:])
+    import pprint
+    from config import INSTANCES
 
-    print simplejson.dumps({
+    tp = TalisPrism(getattr(INSTANCES, sys.argv[1]), *sys.argv[2:])
+    pprint.PrettyPrinter().pprint({
         'name': tp.name,
         'email': tp.email,
         'address': tp.address,
@@ -152,5 +154,5 @@ if __name__ == '__main__':
         'charges': tp.charges,
         'loans': tp.loans,
         'history': tp.history,
-    }, indent=3)
+    })
 
