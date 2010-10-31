@@ -10,7 +10,7 @@ This project provides a simple library for interacting with Talis Prism instance
 API
 ---
 
-There are three modules, ``access``, ``autorenew`` and ``config``.
+There are three modules in the ``talisprism`` package, ``access``, ``autorenew`` and ``config``.
 
 ``access``
 ~~~~~~~~~~
@@ -29,7 +29,7 @@ There is also a method ``renew``, taking an iterable of LCNs to renew. At the mo
 
 Example usage::
 
-   from access import TalisPrism
+   from talisprism.access import TalisPrism
 
    tp = TalisPrism('http://library.example.com/TalisPrism/', '1234567890', '0000')
    print "%s <%s>" % (tp.name, tp.email)
@@ -48,7 +48,7 @@ This module contains a single function, ``autorenew``, taking the base URL for t
 Example usage::
 
    from datetime import timedelta
-   from autorenew import autorenew
+   from talisprism.autorenew import autorenew
 
    autorenew('http://library.example.com/TalisPrism/', '1234567890', '0000', timedelta(1))
 
