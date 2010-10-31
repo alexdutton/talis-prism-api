@@ -12,7 +12,7 @@ class TalisPrism(object):
         self.base_url = base_url
         self.cj = cookielib.CookieJar()
         self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-        
+
         self.login(username, password)
 
     def urlopen(self, url, *args, **kwargs):
@@ -50,34 +50,25 @@ class TalisPrism(object):
         return self._user_details_cache
 
     @property
-    def charges(self):
-        match = re.search(r'£(\d+\.\d\d)', self.home_page)
-        if match:
-            return float(match.group(1))
+    def history_page(self):
+        if not hasattr(self, '_history_page_cache'):
+            self._history_page_cache = self.urlopen('accessAccount.do?accountAction=1').read()
+        return self._history_page_cache
 
-    @property
-    def name(self):
-        match = re.search('<span class="logonText" id="HeaderTextBorrowerName">(.*?)</span>', self.home_page)
-        if match:
-            return match.group(1)
+    def simple_property(page_name, regex):
+        @property
+        def p(self):
+            match = re.search(regex, getattr(self, page_name))
+            if match:
+                return match.group(1)
+        return p
 
-    @property
-    def email(self):
-        match = re.search('<input type="text" name="currentEmailAddress" size="20" value="mailto:(.*?)" id="CurrentEmailAddress">', self.user_details)
-        if match:
-            return match.group(1)
+    charges = simple_property('home_page', r'£(\d+\.\d\d)')
+    name = simple_property('home_page', r'<span class="logonText" id="HeaderTextBorrowerName">(.*?)</span>')
 
-    @property
-    def address(self):
-        match = re.search('<textarea name="defaultAddressDetails" cols="73" rows="2" id="defaultAddr">(.*?)</textarea>', self.user_details)
-        if match:
-            return match.group(1)
-
-    @property
-    def telephone(self):
-        match = re.search('<input type="text" name="defaultTelephoneNo" size="15" value="(.*?)" id="defaultTelephoneNo">', self.user_details)
-        if match:
-            return match.group(1)
+    email = simple_property('user_details', r'<input type="text" name="currentEmailAddress" size="20" value="mailto:(.*?)" id="CurrentEmailAddress">')
+    address = simple_property('user_details', r'<textarea name="defaultAddressDetails" cols="73" rows="2" id="defaultAddr">(.*?)</textarea>')
+    telephone = simple_property('user_details', r'<input type="text" name="defaultTelephoneNo" size="15" value="(.*?)" id="defaultTelephoneNo">')
 
     @property
     def loans(self):
@@ -106,6 +97,50 @@ class TalisPrism(object):
 
         return items
 
+    @property
+    def history(self):
+        part = self.history_page
+
+        try:
+            part = part[part.index('<Table Height="1%" Width="100%" >'):]
+            part = part[:part.index('</Table>')]
+        except ValueError:
+            return []
+        part = etree.fromstring(part, parser=etree.HTMLParser())
+
+        items = []
+        for tr in part.findall('.//tr')[1:]:
+            fields = [td.find('font') for td in tr.findall('td')]
+            fields = [(f.find('font') if len(f) else f) for f in fields]
+            title_stmt, isbn = fields[0].text.rsplit(' - ', 1)
+            items.append({
+                'title_stmt': title_stmt,
+                'isbn': isbn,
+                'lcn': fields[1].text.strip(),
+                'type': fields[2].text.strip(),
+                'issued': datetime.strptime(fields[3].text.strip(), '%d/%m/%Y').isoformat(),
+                'returned': datetime.strptime(fields[4].text.strip(), '%d/%m/%Y').isoformat(),
+            })
+
+        return items
+
+    def renew(self, lcns):
+        if isinstance(lcns, basestring):
+            lcns = (lcns,)
+
+        loans = self.loans
+        loans = dict((loan['lcn'], i) for i, loan in enumerate(loans))
+
+        rows = [loans[lcn] for lcn in lcns]
+
+        self.urlopen('accessAccount.do?%s' % urllib.urlencode((
+            ('accountAction', '4'),
+            ('dataType', '0'),
+            ('to', '')
+        ) + tuple(('loanRows', row) for row in rows)))
+
+        del self._home_page_cache
+
 if __name__ == '__main__':
     tp = TalisPrism('http://www.library.northamptonshire.gov.uk/TalisPrism/', *sys.argv[1:])
 
@@ -116,5 +151,6 @@ if __name__ == '__main__':
         'telephone': tp.telephone,
         'charges': tp.charges,
         'loans': tp.loans,
+        'history': tp.history,
     }, indent=3)
 
